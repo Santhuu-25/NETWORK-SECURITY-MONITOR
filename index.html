@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Security Monitor</title>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body class="soc-theme">
+    <!-- Disconnection Toast -->
+    <div id="connection-banner" class="connection-banner hidden">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>REAL-TIME CONNECTION LOST. Attempting to reconnect...</span>
+    </div>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-shield-halved"></i>
+                </div>
+                <div class="brand-text">
+                    <span class="brand-title">NETWORK</span>
+                    <span class="brand-subtitle">SECURITY MONITOR</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#overview" class="nav-item active">
+                    <i class="fa-solid fa-gauge-high"></i>
+                    <span>SOC Dashboard</span>
+                </a>
+                <a href="#network-map" class="nav-item">
+                    <i class="fa-solid fa-network-wired"></i>
+                    <span>Network Map</span>
+                </a>
+                <a href="#traffic-analysis" class="nav-item">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <span>Traffic Analysis</span>
+                </a>
+                <a href="#live-packets" class="nav-item">
+                    <i class="fa-solid fa-list-ul"></i>
+                    <span>Live Packets</span>
+                </a>
+                <a href="#security-events" class="nav-item">
+                    <i class="fa-solid fa-shield-cat"></i>
+                    <span>Security Events</span>
+                </a>
+                <a href="#settings" class="nav-item">
+                    <i class="fa-solid fa-gear"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="system-tag">
+                    <div class="tag-dot"></div>
+                    <span>CODEALPHA LABS</span>
+                </div>
+                <p class="version">v2.1 SOC Edition</p>
+            </div>
+        </aside>
+
+        <!-- Main Dashboard Content -->
+        <main class="main-content">
+            <!-- Header Bar -->
+            <header class="top-header">
+                <div class="header-title-box">
+                    <h1 class="main-title">NETWORK SECURITY MONITOR</h1>
+                    <p class="main-subtitle">Real-Time Network Packet Analysis & Security Dashboard</p>
+                </div>
+
+                <div class="header-controls">
+                    <div class="control-group">
+                        <label for="iface-select"><i class="fa-solid fa-ethernet"></i> Interface:</label>
+                        <select id="iface-select" class="custom-select">
+                            <option value="eth0">eth0</option>
+                            <option value="lo">lo</option>
+                        </select>
+                    </div>
+
+                    <div class="status-indicator-badge" id="monitoring-status">
+                        <div class="pulse-ring"></div>
+                        <span id="status-text">● LIVE MONITORING</span>
+                    </div>
+
+                    <div class="btn-group">
+                        <button id="btn-start" class="btn btn-start">
+                            <i class="fa-solid fa-play"></i> START
+                        </button>
+                        <button id="btn-stop" class="btn btn-stop">
+                            <i class="fa-solid fa-square"></i> STOP
+                        </button>
+                        <button id="btn-clear" class="btn btn-clear" title="Clear Packets History">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+            </header>
+
+            <!-- KPI Metric Cards Grid -->
+            <section id="overview" class="metrics-grid">
+                <div class="metric-card card-total">
+                    <div class="metric-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="metric-details">
+                        <span class="metric-label">TOTAL PACKETS</span>
+                        <h2 class="metric-value" id="count-total">0</h2>
+                        <span class="metric-sub">Packets processed</span>
+                    </div>
+                </div>
+
+                <div class="metric-card card-tcp">
+                    <div class="metric-icon"><i class="fa-solid fa-globe"></i></div>
+                    <div class="metric-details">
+                        <span class="metric-label">TCP PACKETS</span>
+                        <h2 class="metric-value" id="count-tcp">0</h2>
+                        <span class="metric-sub" id="ratio-tcp">0% of total</span>
+                    </div>
+                </div>
+
+                <div class="metric-card card-udp">
+                    <div class="metric-icon"><i class="fa-solid fa-bolt"></i></div>
+                    <div class="metric-details">
+                        <span class="metric-label">UDP PACKETS</span>
+                        <h2 class="metric-value" id="count-udp">0</h2>
+                        <span class="metric-sub" id="ratio-udp">0% of total</span>
+                    </div>
+                </div>
+
+                <div class="metric-card card-icmp">
+                    <div class="metric-icon"><i class="fa-solid fa-satellite-dish"></i></div>
+                    <div class="metric-details">
+                        <span class="metric-label">ICMP PACKETS</span>
+                        <h2 class="metric-value" id="count-icmp">0</h2>
+                        <span class="metric-sub" id="ratio-icmp">0% of total</span>
+                    </div>
+                </div>
+
+                <div class="metric-card card-pps">
+                    <div class="metric-icon"><i class="fa-solid fa-gauge"></i></div>
+                    <div class="metric-details">
+                        <span class="metric-label">VELOCITY (PPS)</span>
+                        <h2 class="metric-value" id="val-pps">0</h2>
+                        <span class="metric-sub">Packets / Second</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Network Topology Visualization -->
+            <section id="network-map" class="section-container canvas-section">
+                <div class="section-header">
+                    <h2 class="section-title"><i class="fa-solid fa-network-wired"></i> ANIMATED NETWORK TRAFFIC MAP</h2>
+                    <span class="section-badge"><i class="fa-solid fa-circle-info"></i> Real-time packet flow particle animation</span>
+                </div>
+                <div class="canvas-wrapper">
+                    <canvas id="network-canvas"></canvas>
+                    <div class="canvas-overlay hidden" id="canvas-overlay">
+                        <span>CAPTURE PAUSED</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Live Charts Grid -->
+            <section id="traffic-analysis" class="charts-grid">
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-pie"></i> Protocol Distribution</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="chart-protocol"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-line"></i> Packets / Second Velocity</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="chart-pps"></canvas>
+                    </div>
+                </div>
+
+                <div class="chart-card">
+                    <div class="card-header">
+                        <h3><i class="fa-solid fa-chart-simple"></i> Traffic Bandwidth (Bytes)</h3>
+                    </div>
+                    <div class="chart-body">
+                        <canvas id="chart-traffic"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Row: Packets Table & Right Side Panels -->
+            <div class="bottom-grid">
+                <!-- Live Packets Stream Table -->
+                <section id="live-packets" class="table-section">
+                    <div class="table-controls-bar">
+                        <div class="table-title">
+                            <h2><i class="fa-solid fa-list-ul"></i> LIVE PACKET STREAM</h2>
+                        </div>
+                        
+                        <div class="search-filter-box">
+                            <div class="search-input-wrapper">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                                <input type="text" id="packet-search" placeholder="Search Source, Dest IP, Port...">
+                            </div>
+
+                            <div class="protocol-filter-buttons">
+                                <button class="proto-btn active" data-proto="ALL">ALL</button>
+                                <button class="proto-btn" data-proto="TCP">TCP</button>
+                                <button class="proto-btn" data-proto="UDP">UDP</button>
+                                <button class="proto-btn" data-proto="ICMP">ICMP</button>
+                                <button class="proto-btn" data-proto="DNS">DNS</button>
+                                <button class="proto-btn" data-proto="OTHER">OTHER</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>TIME</th>
+                                    <th>SOURCE IP</th>
+                                    <th>DESTINATION IP</th>
+                                    <th>PROTOCOL</th>
+                                    <th>SRC PORT</th>
+                                    <th>DST PORT</th>
+                                    <th>SIZE</th>
+                                    <th>STATUS</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packets-tbody">
+                                <tr id="empty-row">
+                                    <td colspan="8" class="text-center empty-cell">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Waiting for live packets...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Side Panels Column -->
+                <div class="side-panels-column">
+                    <!-- Security Events Panel -->
+                    <div id="security-events" class="panel-card security-panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-shield-cat"></i> SECURITY EVENTS</h3>
+                            <span id="alert-counter" class="badge badge-info">0 EVENTS</span>
+                        </div>
+                        <div id="alerts-feed" class="alerts-feed">
+                            <div class="alert-item alert-info">
+                                <div class="alert-icon"><i class="fa-solid fa-circle-check"></i></div>
+                                <div class="alert-content">
+                                    <div class="alert-title">✓ NORMAL TRAFFIC</div>
+                                    <div class="alert-desc">Security detection engine active and monitoring.</div>
+                                    <div class="alert-time">System Startup</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- System Status Panel -->
+                    <div id="system-status" class="panel-card status-panel">
+                        <div class="panel-header">
+                            <h3><i class="fa-solid fa-server"></i> SYSTEM STATUS</h3>
+                        </div>
+                        <ul class="status-list">
+                            <li>
+                                <span class="status-name">BACKEND</span>
+                                <span class="status-val status-green"><i class="fa-solid fa-circle"></i> ONLINE</span>
+                            </li>
+                            <li>
+                                <span class="status-name">SCAPY</span>
+                                <span class="status-val status-green"><i class="fa-solid fa-circle"></i> ACTIVE</span>
+                            </li>
+                            <li>
+                                <span class="status-name">WEBSOCKET</span>
+                                <span id="ws-status-badge" class="status-val status-red"><i class="fa-solid fa-circle"></i> WEBSOCKET DISCONNECTED</span>
+                            </li>
+                            <li>
+                                <span class="status-name">PACKET CAPTURE</span>
+                                <span id="capture-status-badge" class="status-val status-green"><i class="fa-solid fa-circle"></i> RUNNING</span>
+                            </li>
+                            <li>
+                                <span class="status-name">DASHBOARD</span>
+                                <span class="status-val status-green"><i class="fa-solid fa-circle"></i> ONLINE</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Panel -->
+            <section id="settings" class="section-container">
+                <div class="section-header">
+                    <h2 class="section-title"><i class="fa-solid fa-gear"></i> MONITORING SETTINGS</h2>
+                </div>
+                <div style="color: #94a3b8; font-size: 0.9rem; display: flex; flex-direction: column; gap: 10px;">
+                    <p><i class="fa-solid fa-sliders"></i> <strong>Defensive Thresholds:</strong> Rate limit alert set to 60 pkts/sec. Port scan threshold set to 15 unique destination ports.</p>
+                    <p><i class="fa-solid fa-network-wired"></i> <strong>Capture Driver:</strong> Scapy raw socket engine in background thread.</p>
+                    <p><i class="fa-solid fa-shield-halved"></i> <strong>Data Safety:</strong> Only packet headers & metadata (IP, Protocol, Ports, Size) are analyzed. Sensitive payloads are discarded to protect privacy.</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Dashboard JS -->
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
